@@ -68,10 +68,11 @@ jobs:
           echo "bamboo_planRepository_name=talk" >> $GITHUB_ENV
           echo "bamboo_planKey=NEWSDNA-TALK" >> $GITHUB_ENV
 
-      - name: Run mock ops.sh
-        run: |
-          chmod +x bamboo/soe/scripts/ops.sh
-          ./app/scripts/ops.sh build SOE
+        - name: Run mock ops.sh
+          run: |
+            chmod +x app/scripts/bamboo/soe/scripts/ops.sh
+            ./app/scripts/bamboo/soe/scripts/ops.sh build SOE
+        
 
       - name: Upload AMI result
         run: echo "ami-dummy-12345" > ami.txt
