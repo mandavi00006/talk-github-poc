@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Set up Node.js and Yarn
         run: |
@@ -36,10 +36,12 @@ jobs:
 
       - name: Create and upload dummy artifacts
         run: |
+          mkdir -p bamboo/soe/scripts
+          echo "#!/bin/bash\necho Simulated get_latest_ami\necho Simulated AMI build\necho ami=ami-1234567890abcdef0 > ami.txt" > bamboo/soe/scripts/ops.sh
+          chmod +x bamboo/soe/scripts/ops.sh
           mkdir -p output
           echo "Sample build content" > output/result.txt
           tar -czf package.tar.gz output/
-        shell: bash
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -48,7 +50,7 @@ jobs:
           path: |
             package.tar.gz
             bamboo/soe/scripts/ops.sh
-      
+
   bake-ami:
     name: Bake AMI
     runs-on: ubuntu-latest
@@ -61,6 +63,8 @@ jobs:
           path: ./app/scripts
 
       - name: Set up dummy environment variables
+        env:
+          RUN_NUMBER: ${{ github.run_number }}
         run: |
           echo "bamboo_CFNBaseFolder=sample-folder" >> $GITHUB_ENV
           echo "bamboo_ImageBaseVersion=1.0.0" >> $GITHUB_ENV
@@ -68,11 +72,10 @@ jobs:
           echo "bamboo_planRepository_name=talk" >> $GITHUB_ENV
           echo "bamboo_planKey=NEWSDNA-TALK" >> $GITHUB_ENV
 
-        - name: Run mock ops.sh
-          run: |
-            chmod +x app/scripts/bamboo/soe/scripts/ops.sh
-            ./app/scripts/bamboo/soe/scripts/ops.sh build SOE
-        
+      - name: Run mock ops.sh
+        run: |
+          chmod +x app/scripts/bamboo/soe/scripts/ops.sh
+          ./app/scripts/bamboo/soe/scripts/ops.sh build SOE
 
       - name: Upload AMI result
         run: echo "ami-dummy-12345" > ami.txt
