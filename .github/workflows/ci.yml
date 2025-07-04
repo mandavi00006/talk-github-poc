@@ -41,12 +41,14 @@ jobs:
           tar -czf package.tar.gz output/
         shell: bash
 
-      - name: Upload artifacts
+        - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: build-artifacts
-          path: package.tar.gz
-
+          path: |
+            package.tar.gz
+            bamboo/soe/scripts/ops.sh
+      
   bake-ami:
     name: Bake AMI
     runs-on: ubuntu-latest
@@ -69,7 +71,7 @@ jobs:
       - name: Run mock ops.sh
         run: |
           chmod +x bamboo/soe/scripts/ops.sh
-          ./bamboo/soe/scripts/ops.sh build SOE
+          ./app/scripts/ops.sh build SOE
 
       - name: Upload AMI result
         run: echo "ami-dummy-12345" > ami.txt
