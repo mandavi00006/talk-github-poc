@@ -64,7 +64,7 @@ jobs:
         run: |
           echo "bamboo_CFNBaseFolder=sample-folder" >> $GITHUB_ENV
           echo "bamboo_ImageBaseVersion=1.0.0" >> $GITHUB_ENV
-          echo "bamboo_buildNumber=${{ github.run_number }}" >> $GITHUB_ENV
+          echo "bamboo_buildNumber=$RUN_NUMBER" >> $GITHUB_ENV
           echo "bamboo_planRepository_name=talk" >> $GITHUB_ENV
           echo "bamboo_planKey=NEWSDNA-TALK" >> $GITHUB_ENV
 
