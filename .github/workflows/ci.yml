@@ -102,17 +102,43 @@ jobs:
     needs: bake-ami
     environment:
       name: SIT
-      url: https://your-sit-url.example.com  # Optional placeholder
+      url: https://your-sit-url.example.com
     steps:
-      - name: Simulate deployment
+      - name: Simulate deployment to SIT
         run: |
           echo "Deploying to SIT environment..."
+          echo "AMI ID: $(cat ami.txt || echo dummy-ami)"
+
+  deploy-uat:
+    name: Deploy to UAT
+    runs-on: ubuntu-latest
+    needs: deploy-sit
+    environment:
+      name: UAT
+      url: https://your-uat-url.example.com
+    steps:
+      - name: Simulate deployment to UAT
+        run: |
+          echo "Deploying to UAT environment..."
+          echo "AMI ID: $(cat ami.txt || echo dummy-ami)"
+
+  deploy-prod:
+    name: Deploy to PROD
+    runs-on: ubuntu-latest
+    needs: deploy-uat
+    environment:
+      name: PROD
+      url: https://your-prod-url.example.com
+    steps:
+      - name: Simulate deployment to PROD
+        run: |
+          echo "Deploying to PROD environment..."
           echo "AMI ID: $(cat ami.txt || echo dummy-ami)"
 
   notify-on-failure:
     name: Notify on Failure
     runs-on: ubuntu-latest
-    needs: [prepare, bake-ami, deploy-sit]
+    needs: [prepare, bake-ami, deploy-sit, deploy-uat, deploy-prod]
     if: failure()
     steps:
       - name: Send dummy Slack notification
