@@ -1,0 +1,94 @@
+name: NewsDNA-Talk-CI-CD
+
+on:
+  push:
+    branches:
+      - release/sit
+
+env:
+  APPLICATION: talk
+  PRODUCT: talk
+  ENV: sit
+  NETWORKSECURITYENV: sit
+  CORAL_TALK_VERSION: v4.12.0
+
+jobs:
+  prepare:
+    name: Prepare - Checkout and Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js and Yarn
+        run: |
+          curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          nvm install 14.21.3
+          nvm use 14.21.3
+          npm install -g yarn
+
+      - name: Install dependencies and build
+        run: |
+          yarn install
+          yarn build || echo "Skipping build errors for prototype"
+
+      - name: Create and upload dummy artifacts
+        run: |
+          mkdir -p output
+          echo "Sample build content" > output/result.txt
+          tar -czf package.tar.gz output/
+        shell: bash
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-artifacts
+          path: package.tar.gz
+
+  bake-ami:
+    name: Bake AMI
+    runs-on: ubuntu-latest
+    needs: prepare
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: build-artifacts
+          path: ./app/scripts
+
+      - name: Set up dummy environment variables
+        run: |
+          echo "bamboo_CFNBaseFolder=sample-folder" >> $GITHUB_ENV
+          echo "bamboo_ImageBaseVersion=1.0.0" >> $GITHUB_ENV
+          echo "bamboo_buildNumber=${{ github.run_number }}" >> $GITHUB_ENV
+          echo "bamboo_planRepository_name=talk" >> $GITHUB_ENV
+          echo "bamboo_planKey=NEWSDNA-TALK" >> $GITHUB_ENV
+
+      - name: Run mock ops.sh
+        run: |
+          chmod +x bamboo/soe/scripts/ops.sh
+          ./bamboo/soe/scripts/ops.sh build SOE
+
+      - name: Upload AMI result
+        run: echo "ami-dummy-12345" > ami.txt
+
+      - name: Upload AMI artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ami
+          path: ami.txt
+
+  notify-on-failure:
+    name: Notify on Failure
+    runs-on: ubuntu-latest
+    needs: [prepare, bake-ami]
+    if: failure()
+    steps:
+      - name: Send dummy Slack notification
+        run: |
+          echo "Sending dummy Slack alert"
+          curl -X POST -H 'Content-type: application/json' \
+          --data '{"text":"❌ *CI/CD Pipeline Failed* (Prototype)"}' \
+          ${{ secrets.SLACK_WEBHOOK_URL || 'https://hooks.slack.com/services/test/test/test' }}
