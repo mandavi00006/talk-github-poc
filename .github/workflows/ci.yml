@@ -3,7 +3,7 @@ name: Kurator Legal Kill - Build Pipeline
 on:
   push:
     branches:
-      - feature/bamboo-migration/plan
+      - feature/legal-kill-ci-test
 
 concurrency:
   group: build-kurator-legal-kill-${{ github.ref }}
@@ -49,4 +49,4 @@ jobs:
           path: package.zip
 
 
-# Triggering CI
+# Triggering CI for kurator project
