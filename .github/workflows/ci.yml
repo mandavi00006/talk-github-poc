@@ -1,149 +1,49 @@
-name: NewsDNA-Talk-CI-CD
+name: Kurator Legal Kill - Build Pipeline
 
 on:
   push:
     branches:
-      - release/sit
+      - feature/bamboo-migration/plan
 
-env:
-  APPLICATION: talk
-  PRODUCT: talk
-  ENV: sit
-  NETWORKSECURITYENV: sit
-  CORAL_TALK_VERSION: v4.12.0
+concurrency:
+  group: build-kurator-legal-kill-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  prepare:
-    name: Prepare - Checkout and Build
+  build-patch:
+    name: Build Patch Stage
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+
     steps:
-      - name: Checkout the repository
+      # Step 1: Checkout the repository
+      - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: Set up Node.js and Yarn
-        run: |
-          curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash
-          export NVM_DIR="$HOME/.nvm"
-          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-          nvm install 14.21.3
-          nvm use 14.21.3
-          npm install -g yarn
+      # ✅ Step 2: Set up Node.js v8 using official GitHub Action
+      - name: Set up Node.js v8
+        uses: actions/setup-node@v3
+        with:
+          node-version: 8
+          check-latest: true
 
-      - name: Install dependencies and build
-        run: |
-          yarn install
-          yarn build || echo "Skipping build errors for prototype"
+      # Step 3: Install npm dependencies
+      - name: Install npm dependencies
+        run: npm install
 
-      - name: Create dummy script and zip artifacts
-        run: |
-          mkdir -p bamboo/soe/scripts
-          echo '#!/bin/bash' > bamboo/soe/scripts/ops.sh
-          echo 'set -ex' >> bamboo/soe/scripts/ops.sh
-          echo 'echo Simulated get_latest_ami' >> bamboo/soe/scripts/ops.sh
-          echo 'echo Simulated AMI build' >> bamboo/soe/scripts/ops.sh
-          echo 'echo ami=ami-1234567890abcdef0 > ami.txt' >> bamboo/soe/scripts/ops.sh
-          chmod +x bamboo/soe/scripts/ops.sh
+      # Step 4: Run build
+      - name: Build project
+        run: npm run build
 
-          mkdir -p output
-          echo "Sample build content" > output/result.txt
-          tar -czf package.tar.gz output/
+      # Step 5: Package the output
+      - name: Package code as ZIP
+        run: zip -r package.zip . -x "*.git*"
 
-          zip -r build-artifacts.zip bamboo package.tar.gz
-          unzip -l build-artifacts.zip
-
-      - name: Upload zipped artifacts
+      # Step 6: Upload the artifact
+      - name: Upload artifact - package.zip
         uses: actions/upload-artifact@v4
         with:
-          name: build-artifacts
-          path: build-artifacts.zip
-
-  bake-ami:
-    name: Bake AMI
-    runs-on: ubuntu-latest
-    needs: prepare
-    steps:
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: build-artifacts
-          path: ./app/scripts
-
-      - name: Unzip artifacts
-        run: |
-          unzip app/scripts/build-artifacts.zip -d app/scripts/
-
-      - name: Set up dummy environment variables
-        env:
-          RUN_NUMBER: ${{ github.run_number }}
-        run: |
-          echo "bamboo_CFNBaseFolder=sample-folder" >> $GITHUB_ENV
-          echo "bamboo_ImageBaseVersion=1.0.0" >> $GITHUB_ENV
-          echo "bamboo_buildNumber=$RUN_NUMBER" >> $GITHUB_ENV
-          echo "bamboo_planRepository_name=talk" >> $GITHUB_ENV
-          echo "bamboo_planKey=NEWSDNA-TALK" >> $GITHUB_ENV
-
-      - name: Run mock ops.sh
-        run: |
-          chmod +x app/scripts/bamboo/soe/scripts/ops.sh
-          ./app/scripts/bamboo/soe/scripts/ops.sh build SOE
-
-      - name: Upload AMI result
-        run: echo "ami-dummy-12345" > ami.txt
-
-      - name: Upload AMI artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ami
-          path: ami.txt
-
-  deploy-sit:
-    name: Deploy to SIT
-    runs-on: ubuntu-latest
-    needs: bake-ami
-    environment:
-      name: SIT
-      url: https://your-sit-url.example.com
-    steps:
-      - name: Simulate deployment to SIT
-        run: |
-          echo "Deploying to SIT environment..."
-          echo "AMI ID: $(cat ami.txt || echo dummy-ami)"
-
-  deploy-uat:
-    name: Deploy to UAT
-    runs-on: ubuntu-latest
-    needs: deploy-sit
-    environment:
-      name: UAT
-      url: https://your-uat-url.example.com
-    steps:
-      - name: Simulate deployment to UAT
-        run: |
-          echo "Deploying to UAT environment..."
-          echo "AMI ID: $(cat ami.txt || echo dummy-ami)"
-
-  deploy-prod:
-    name: Deploy to PROD
-    runs-on: ubuntu-latest
-    needs: deploy-uat
-    environment:
-      name: PROD
-      url: https://your-prod-url.example.com
-    steps:
-      - name: Simulate deployment to PROD
-        run: |
-          echo "Deploying to PROD environment..."
-          echo "AMI ID: $(cat ami.txt || echo dummy-ami)"
-
-  notify-on-failure:
-    name: Notify on Failure
-    runs-on: ubuntu-latest
-    needs: [prepare, bake-ami, deploy-sit, deploy-uat, deploy-prod]
-    if: failure()
-    steps:
-      - name: Send dummy Slack notification
-        run: |
-          echo "Sending dummy Slack alert"
-          curl -X POST -H 'Content-type: application/json' \
-          --data '{"text":"❌ *CI/CD Pipeline Failed* (Prototype)"}' \
-          ${{ secrets.SLACK_WEBHOOK_URL || 'https://hooks.slack.com/services/test/test/test' }}
+          name: package
+          path: package.zip
